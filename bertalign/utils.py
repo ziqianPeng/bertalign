@@ -1,5 +1,5 @@
 import re
-from googletrans import Translator
+# from googletrans import Translator
 from sentence_splitter import SentenceSplitter
 
 def clean_text(text):
@@ -13,16 +13,21 @@ def clean_text(text):
             clean_text.append(line)
     return "\n".join(clean_text)
     
+# def detect_lang(text):
+#     translator = Translator(service_urls=[
+#       'translate.google.com.hk',
+#     ])
+#     max_len = 200
+#     chunk = text[0 : min(max_len, len(text))]
+#     lang = translator.detect(chunk).lang
+#     if lang.startswith('zh'):
+#         lang = 'zh'
+#     return lang
+
 def detect_lang(text):
-    translator = Translator(service_urls=[
-      'translate.google.com.hk',
-    ])
-    max_len = 200
-    chunk = text[0 : min(max_len, len(text))]
-    lang = translator.detect(chunk).lang
-    if lang.startswith('zh'):
-        lang = 'zh'
-    return lang
+    # Ziqian: httpx version conflicts with googletrans and jupyter lab, no need to create a new env with pytorch etc.
+    # so I just comment out googletrans for now, as I currently don't need it
+    return None
 
 def split_sents(text, lang):
     if lang in LANG.SPLITTER:
