@@ -17,6 +17,7 @@ class Bertalign:
                  is_split=False,
                  src_lang = None,
                  tgt_lang = None,
+                 cos_similarity = True,
                ):
         
         self.max_align = max_align
@@ -67,6 +68,7 @@ class Bertalign:
         self.src_vecs = src_vecs
         self.tgt_vecs = tgt_vecs
         self.scores = None
+        self.cos_similarity = cos_similarity
         
     def align_sents(self):
 
@@ -79,7 +81,6 @@ class Bertalign:
         
         print("Performing second-step alignment ...")
         second_alignment_types = get_alignment_types(self.max_align)
-        print("second_alignment_types",second_alignment_types)
         second_w, second_path = find_second_search_path(first_alignment, self.win, self.src_num, self.tgt_num)
         second_pointers, cost = second_pass_align(self.src_vecs, self.tgt_vecs, self.src_lens, self.tgt_lens,
                                             second_w, second_path, second_alignment_types,
@@ -87,18 +88,17 @@ class Bertalign:
         second_alignment = second_back_track(self.src_num, self.tgt_num, second_pointers, second_path, second_alignment_types)
         scores = second_back_track_score(self.src_num, self.tgt_num, second_pointers, cost, second_path, second_alignment_types)
 
-        cos_similarity = calculate_cos_similarity(self.src_num, self.tgt_num, second_pointers, second_path, second_alignment_types,
+        self.scores = {'alignment score':  scores }
+        if self.cos_similarity:
+            self.scores['cos']  = calculate_cos_similarity(self.src_num, self.tgt_num, second_pointers, second_path, second_alignment_types,
                                                   self.src_vecs, self.tgt_vecs)
         
         print("Finished! Successfully aligning {} {} sentences to {} {} sentences\n".format(self.src_num, self.src_lang, self.tgt_num, self.tgt_lang))
         self.result = second_alignment
-        self.scores = scores
 
         print(second_pointers)
         print(cost)
         print(second_alignment)
-        print("aligment scores: ", scores)
-        print("cos similarity: ", cos_similarity )
 
     def print_sents(self):
         for bead in (self.result):
@@ -122,7 +122,7 @@ class Bertalign:
     
     def get_align_score(self):
         """alignment score"""
-        print(self.scores)
+        return self.scores
 
     @staticmethod
     def _get_line(bead, lines):

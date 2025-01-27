@@ -73,7 +73,6 @@ def _layer(lines, num_overlaps, comb=' '):
         raise Exception('num_overlaps must be >= 1')
     out = ['PAD', ] * min(num_overlaps - 1, len(lines))
     for ii in range(len(lines) - num_overlaps + 1):
-        print("make encoder input:", out )
         out.append(comb.join(lines[ii:ii + num_overlaps]))
     return out
     

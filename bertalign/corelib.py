@@ -6,17 +6,15 @@ from sys import platform
 
 def second_back_track(i, j, pointers, search_path, a_types):
     alignment = []
-    print("second_back_track")
     while ( 1 ):
         j_offset = j - search_path[i][0]
         a = pointers[i][j_offset]
+        print("second_back_track", [i, j_offset])
         s = a_types[a][0]
         t = a_types[a][1]
         src_range = [i - offset - 1 for offset in range(s)][::-1]
         tgt_range = [j - offset - 1 for offset in range(t)][::-1]
         alignment.append((src_range, tgt_range))
-        print(i,j,a,a_types[a] )
-        print(alignment)
 
         i = i-s
         j = j-t
@@ -49,17 +47,14 @@ def calculate_cos_similarity(i,j, pointers, search_path, a_types, src_vecs, tgt_
         a = pointers[i][j_offset]
         s = a_types[a][0]
         t = a_types[a][1]
-
         # extract the embeddings to calculate their cos similarity
         src_v = src_vecs[s - 1, i - 1, :]
         tgt_v = tgt_vecs[t - 1, j - 1, :]
         scores.append( nb_cos(src_v, tgt_v))
-        print("cos src[s - 1, i - 1]", s - 1, i - 1)
-        print("cos tgt[t - 1, j - 1]", t - 1, j - 1)
-        
+
         i = i-s
         j = j-t
-    
+
         if i == 0 and j == 0:
             return scores[::-1]
 
@@ -97,7 +92,6 @@ def second_pass_align(src_vecs,
     tgt_len = tgt_vecs.shape[1]
     cost = np.zeros((src_len + 1, w), dtype=nb.float32)
     pointers = np.zeros((src_len + 1, w), dtype=nb.uint8)
-    print(src_len + 1, w)
   
     for i in range(src_len + 1):
         i_start = search_path[i][0]
@@ -290,8 +284,8 @@ def find_second_search_path(align, w, src_len, tgt_len):
         width = upper_bound - lower_bound
         if width > max_w:
             max_w = width
+    # ziqian : why we take directly [path[0]]
     path = [path[0]] + path # add the search path for row 0
-    print(f"find_second_search_path: {path} ")
     return max_w + 1, np.array(path)
 
 def first_back_track(i, j, pointers, search_path, a_types):
@@ -320,7 +314,6 @@ def first_back_track(i, j, pointers, search_path, a_types):
         j = j-t
     
         if i == 0 and j == 0: # if reaching the origin
-            print("first_back_track:", alignment[::-1])
             return alignment[::-1]
 
 @nb.jit(nopython=True, fastmath=True, cache=True)
@@ -391,8 +384,6 @@ def first_pass_align(src_len,
             j_offset = j - i_start
             cost[i][j_offset] = best_score
             pointers[i][j_offset] = best_a
-    print("first_pass_align, cost\n", cost)
-    print("first_pass_align, pointers\n", pointers)
     return pointers
 
 def find_first_search_path(src_len,
@@ -414,7 +405,7 @@ def find_first_search_path(src_len,
                      of deletions and omissions.
     """
     win_size = max(min_win_size, int(max(src_len, tgt_len) * percent))
-    print(f"find_first_search_path. win_size = {win_size} = max({min_win_size},{int(max(src_len, tgt_len) * percent)}) ")
+    
     search_path = []
     yx_ratio = tgt_len / src_len
     for i in range(0, src_len + 1):
@@ -422,7 +413,6 @@ def find_first_search_path(src_len,
         win_start = max(0, center - win_size)
         win_end = min(center + win_size, tgt_len)
         search_path.append([win_start, win_end])
-    print("find_first_search_path", win_size, np.array(search_path))
     return win_size, np.array(search_path)
 
 def get_alignment_types(max_alignment_size):
@@ -439,7 +429,6 @@ def get_alignment_types(max_alignment_size):
         for y in range(1, max_alignment_size):
             if x + y <= max_alignment_size:
                 alignment_types.append([x, y])    
-    print("alignment_types",np.array(alignment_types))
     return np.array(alignment_types)
 
 def find_top_k_sents(src_vecs, tgt_vecs, k=3):
@@ -464,7 +453,4 @@ def find_top_k_sents(src_vecs, tgt_vecs, k=3):
         index = faiss.IndexFlatIP(embedding_size)
         index.add(tgt_vecs)
         D, I = index.search(src_vecs, k)
-    print(k)
-    print(f"faiss: D: Similarity score matrix of shape (num_src_sents, k).\n{D}")
-    print(f"faiss: I: Target index matrix of shape (num_src_sents, k).\n{I}")
     return D, I
