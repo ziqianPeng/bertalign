@@ -86,6 +86,9 @@ class Bertalign:
                                             self.char_ratio, self.skip, margin=self.margin, len_penalty=self.len_penalty)
         second_alignment = second_back_track(self.src_num, self.tgt_num, second_pointers, second_path, second_alignment_types)
         scores = second_back_track_score(self.src_num, self.tgt_num, second_pointers, cost, second_path, second_alignment_types)
+
+        cos_similarity = calculate_cos_similarity(self.src_num, self.tgt_num, second_pointers, second_path, second_alignment_types,
+                                                  self.src_vecs, self.tgt_vecs)
         
         print("Finished! Successfully aligning {} {} sentences to {} {} sentences\n".format(self.src_num, self.src_lang, self.tgt_num, self.tgt_lang))
         self.result = second_alignment
@@ -94,7 +97,9 @@ class Bertalign:
         print(second_pointers)
         print(cost)
         print(second_alignment)
-    
+        print("aligment scores: ", scores)
+        print("cos similarity: ", cos_similarity )
+
     def print_sents(self):
         for bead in (self.result):
             src_line = self._get_line(bead[0], self.src_sents)

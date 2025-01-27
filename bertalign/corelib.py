@@ -39,6 +39,29 @@ def second_back_track_score(i,j, pointers, cost, search_path, a_types):
     
         if i == 0 and j == 0:
             return scores[::-1]
+        
+
+def calculate_cos_similarity(i,j, pointers, search_path, a_types, src_vecs, tgt_vecs):
+    """ ziqian extract also the alignment score """
+    scores = []
+    while( 1 ):
+        j_offset = j - search_path[i][0]
+        a = pointers[i][j_offset]
+        s = a_types[a][0]
+        t = a_types[a][1]
+
+        # extract the embeddings to calculate their cos similarity
+        src_v = src_vecs[s - 1, i - 1, :]
+        tgt_v = tgt_vecs[t - 1, j - 1, :]
+        scores.append( nb_cos(src_v, tgt_v))
+        print("cos src[s - 1, i - 1]", s - 1, i - 1)
+        print("cos tgt[t - 1, j - 1]", t - 1, j - 1)
+        
+        i = i-s
+        j = j-t
+    
+        if i == 0 and j == 0:
+            return scores[::-1]
 
 
 @nb.jit(nopython=True, fastmath=True, cache=True)
@@ -218,6 +241,13 @@ def calculate_length_penalty(src_lens,
 def nb_dot(x, y):
     return np.dot(x,y)
 
+@nb.jit(nopython=True, fastmath=True, cache=True)
+def nb_cos(x, y):
+    """ ziqian comput cosine similarity """
+    norm_xy = np.sqrt(np.sum(x**2)) * np.sqrt(np.sum(y**2))
+    res = np.dot(x,y)/norm_xy
+    return res
+
 def find_second_search_path(align, w, src_len, tgt_len):
     """
     Convert 1-1 first-pass alignment to the second-round path.
@@ -290,7 +320,7 @@ def first_back_track(i, j, pointers, search_path, a_types):
         j = j-t
     
         if i == 0 and j == 0: # if reaching the origin
-            print("first_back_track]", alignment[::-1])
+            print("first_back_track:", alignment[::-1])
             return alignment[::-1]
 
 @nb.jit(nopython=True, fastmath=True, cache=True)
