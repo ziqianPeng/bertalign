@@ -6,6 +6,7 @@ from sys import platform
 
 def second_back_track(i, j, pointers, search_path, a_types):
     alignment = []
+    print("second_back_track")
     while ( 1 ):
         j_offset = j - search_path[i][0]
         a = pointers[i][j_offset]
@@ -14,12 +15,31 @@ def second_back_track(i, j, pointers, search_path, a_types):
         src_range = [i - offset - 1 for offset in range(s)][::-1]
         tgt_range = [j - offset - 1 for offset in range(t)][::-1]
         alignment.append((src_range, tgt_range))
+        print(i,j,a,a_types[a] )
+        print(alignment)
 
         i = i-s
         j = j-t
     
         if i == 0 and j == 0:
             return alignment[::-1]
+
+def second_back_track_score(i,j, pointers, cost, search_path, a_types):
+    # ziqian extract also the alignment score
+    scores = []
+    while( 1 ):
+        j_offset = j - search_path[i][0]
+        a = pointers[i][j_offset]
+        scores.append (cost[i][j_offset])
+
+        s = a_types[a][0]
+        t = a_types[a][1]
+        i = i-s
+        j = j-t
+    
+        if i == 0 and j == 0:
+            return scores[::-1]
+
 
 @nb.jit(nopython=True, fastmath=True, cache=True)
 def second_pass_align(src_vecs,
@@ -54,6 +74,7 @@ def second_pass_align(src_vecs,
     tgt_len = tgt_vecs.shape[1]
     cost = np.zeros((src_len + 1, w), dtype=nb.float32)
     pointers = np.zeros((src_len + 1, w), dtype=nb.uint8)
+    print(src_len + 1, w)
   
     for i in range(src_len + 1):
         i_start = search_path[i][0]
@@ -102,7 +123,7 @@ def second_pass_align(src_vecs,
             cost[i][j_offset] = best_score
             pointers[i][j_offset] = best_a
       
-    return pointers
+    return pointers, cost
 
 @nb.jit(nopython=True, fastmath=True, cache=True)
 def calculate_similarity_score(src_vecs,
@@ -141,6 +162,8 @@ def calculate_similarity_score(src_vecs,
 
 @nb.jit(nopython=True, fastmath=True, cache=True)
 def calculate_neighbor_similarity(vec, overlap, sent_idx, sent_len, db):
+    # ziqian: `sent_idx - overlap` is the previous i or j, 
+    # but why we extract always the embedding of overlap=0 from db, instead of the overlapped segment?
     left_idx = sent_idx - overlap
     right_idx = sent_idx + 1
     
@@ -229,6 +252,7 @@ def find_second_search_path(align, w, src_len, tgt_len):
     for src, tgt in align:
         # Limit the search path in a rectangle with the width
         # along the Y axis being (upper_bound - lower_bound).
+        # ziqian: why we check from prevsrc to src and prev_tgt to tgt? because there can be empty alignment?
         lower_bound = max(0, prev_tgt - w)
         upper_bound = min(tgt_len, tgt + w)
         path.extend([(lower_bound, upper_bound) for id in range(prev_src+1, src+1)])
@@ -237,6 +261,7 @@ def find_second_search_path(align, w, src_len, tgt_len):
         if width > max_w:
             max_w = width
     path = [path[0]] + path # add the search path for row 0
+    print(f"find_second_search_path: {path} ")
     return max_w + 1, np.array(path)
 
 def first_back_track(i, j, pointers, search_path, a_types):
@@ -254,6 +279,7 @@ def first_back_track(i, j, pointers, search_path, a_types):
     alignment = []
     while ( 1 ):
         j_offset = j - search_path[i][0]
+        # at the first round, (i, j_offset) is the right bottom case, where i = nbr of src sentences, j_offset = the matrix width
         a = pointers[i][j_offset]
         s = a_types[a][0]
         t = a_types[a][1]
@@ -264,6 +290,7 @@ def first_back_track(i, j, pointers, search_path, a_types):
         j = j-t
     
         if i == 0 and j == 0: # if reaching the origin
+            print("first_back_track]", alignment[::-1])
             return alignment[::-1]
 
 @nb.jit(nopython=True, fastmath=True, cache=True)
@@ -303,6 +330,8 @@ def first_pass_align(src_len,
             best_score = -np.inf
             best_a = -1
             for a in range(align_types.shape[0]):
+                # align_types = [0,1],[1,0],[1,1]
+                # if [0,*] or [*,0], take the score of the corresponding previous cell 
                 a_1 = align_types[a][0]
                 a_2 = align_types[a][1]
                 prev_i = i - a_1
@@ -313,10 +342,12 @@ def first_pass_align(src_len,
                 prev_i_end =  search_path[prev_i][1]
                 if prev_j < prev_i_start or prev_j > prev_i_end: # out of bound of cost matrix
                     continue
+                # minus previous_i_start as j begins with i_start, but the matrix column begins with i_start - i_start
                 prev_j_offset = prev_j - prev_i_start
                 score = cost[prev_i][prev_j_offset]
                 
                 # Extract the score for 1-1 bead from faiss.
+                # if no empty alignment, increment the score based on the previous path
                 if a_1 > 0 and a_2 > 0:
                     for k in range(top_k):
                         if index[i-1][k] == j - 1:
@@ -330,7 +361,8 @@ def first_pass_align(src_len,
             j_offset = j - i_start
             cost[i][j_offset] = best_score
             pointers[i][j_offset] = best_a
-
+    print("first_pass_align, cost\n", cost)
+    print("first_pass_align, pointers\n", pointers)
     return pointers
 
 def find_first_search_path(src_len,
@@ -352,6 +384,7 @@ def find_first_search_path(src_len,
                      of deletions and omissions.
     """
     win_size = max(min_win_size, int(max(src_len, tgt_len) * percent))
+    print(f"find_first_search_path. win_size = {win_size} = max({min_win_size},{int(max(src_len, tgt_len) * percent)}) ")
     search_path = []
     yx_ratio = tgt_len / src_len
     for i in range(0, src_len + 1):
@@ -359,6 +392,7 @@ def find_first_search_path(src_len,
         win_start = max(0, center - win_size)
         win_end = min(center + win_size, tgt_len)
         search_path.append([win_start, win_end])
+    print("find_first_search_path", win_size, np.array(search_path))
     return win_size, np.array(search_path)
 
 def get_alignment_types(max_alignment_size):
@@ -375,6 +409,7 @@ def get_alignment_types(max_alignment_size):
         for y in range(1, max_alignment_size):
             if x + y <= max_alignment_size:
                 alignment_types.append([x, y])    
+    print("alignment_types",np.array(alignment_types))
     return np.array(alignment_types)
 
 def find_top_k_sents(src_vecs, tgt_vecs, k=3):
@@ -399,4 +434,7 @@ def find_top_k_sents(src_vecs, tgt_vecs, k=3):
         index = faiss.IndexFlatIP(embedding_size)
         index.add(tgt_vecs)
         D, I = index.search(src_vecs, k)
+    print(k)
+    print(f"faiss: D: Similarity score matrix of shape (num_src_sents, k).\n{D}")
+    print(f"faiss: I: Target index matrix of shape (num_src_sents, k).\n{I}")
     return D, I

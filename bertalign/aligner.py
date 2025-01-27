@@ -66,6 +66,7 @@ class Bertalign:
         self.char_ratio = char_ratio
         self.src_vecs = src_vecs
         self.tgt_vecs = tgt_vecs
+        self.scores = None
         
     def align_sents(self):
 
@@ -78,14 +79,21 @@ class Bertalign:
         
         print("Performing second-step alignment ...")
         second_alignment_types = get_alignment_types(self.max_align)
+        print("second_alignment_types",second_alignment_types)
         second_w, second_path = find_second_search_path(first_alignment, self.win, self.src_num, self.tgt_num)
-        second_pointers = second_pass_align(self.src_vecs, self.tgt_vecs, self.src_lens, self.tgt_lens,
+        second_pointers, cost = second_pass_align(self.src_vecs, self.tgt_vecs, self.src_lens, self.tgt_lens,
                                             second_w, second_path, second_alignment_types,
                                             self.char_ratio, self.skip, margin=self.margin, len_penalty=self.len_penalty)
         second_alignment = second_back_track(self.src_num, self.tgt_num, second_pointers, second_path, second_alignment_types)
+        scores = second_back_track_score(self.src_num, self.tgt_num, second_pointers, cost, second_path, second_alignment_types)
         
         print("Finished! Successfully aligning {} {} sentences to {} {} sentences\n".format(self.src_num, self.src_lang, self.tgt_num, self.tgt_lang))
         self.result = second_alignment
+        self.scores = scores
+
+        print(second_pointers)
+        print(cost)
+        print(second_alignment)
     
     def print_sents(self):
         for bead in (self.result):
@@ -93,7 +101,7 @@ class Bertalign:
             tgt_line = self._get_line(bead[1], self.tgt_sents)
             print(src_line + "\n" + tgt_line + "\n")
 
-    # zp store resulst
+    # zp store results
     def store_sents(self, src_store_path, tgt_store_path):
         src_lines = []
         tgt_lines = []
@@ -106,7 +114,10 @@ class Bertalign:
 
         with open(tgt_store_path, 'w', encoding = 'utf-8') as f:
             f.write('\n'.join(tgt_lines))
-
+    
+    def get_align_score(self):
+        """alignment score"""
+        print(self.scores)
 
     @staticmethod
     def _get_line(bead, lines):

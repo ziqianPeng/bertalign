@@ -10,16 +10,22 @@ class Encoder:
         self.model_name = model_name
 
     def transform(self, sents, num_overlaps):
+        print(f"sents = {sents}, num_overlaps = {num_overlaps}")
         overlaps = []
         for line in yield_overlaps(sents, num_overlaps):
             overlaps.append(line)
+        print(f'encoder inputs = ', overlaps)
+        print(len(overlaps))
 
         sent_vecs = self.model.encode(overlaps)
+        print(sent_vecs.size, sent_vecs.shape  )
         embedding_dim = sent_vecs.size // (len(sents) * num_overlaps)
         sent_vecs.resize(num_overlaps, len(sents), embedding_dim)
+        print('embed dim = ',num_overlaps, len(sents), embedding_dim)
 
         len_vecs = [len(line.encode("utf-8")) for line in overlaps]
         len_vecs = np.array(len_vecs)
         len_vecs.resize(num_overlaps, len(sents))
+        print("len_vecs",len_vecs)
 
         return sent_vecs, len_vecs
